@@ -4,6 +4,70 @@
 
 项目的 Dockerfile、Compose 和文档使用通用镜像名。**专属镜像加速地址只填写在服务器的 `/etc/docker/daemon.json` 中**，不写入源码、`.env.example` 或部署包。
 
+## 没有域名：使用公网 IP + HTTP
+
+项目提供独立的 `compose.http.yaml`，无需填写域名和证书邮箱。服务器准备、Docker 安装、服务器镜像源配置、OBS 配置仍按下文执行；跳过 DNS 和证书步骤，云安全组开放 TCP 80，SSH 按实际端口限制来源。
+
+将新版源码中的 `compose.http.yaml` 和 `deploy/Caddyfile.http` 一同上传。已有服务器项目至少需要补齐这两个文件。
+
+在服务器项目目录执行 `nano .env`，新增或修改以下配置。每个变量只保留一行，将 IP 换成服务器的真实公网地址：
+
+```dotenv
+COMPOSE_FILE=compose.http.yaml
+APP_URL=http://你的服务器公网IP
+COOKIE_SECURE=false
+TRUST_PROXY=true
+HTTP_PORT=80
+```
+
+`ADMIN_PASSWORD`、`SESSION_SECRET` 和所有 OBS 配置沿用原值。HTTP 配置不读取 `DOMAIN` 和 `ACME_EMAIL`，这两个变量可以留空。它会关闭安全 Cookie 标志并保留代理、上传大小限制和持久卷。`COMPOSE_FILE` 让后续不带 `-f` 的 Compose 命令自动选择 HTTP 配置。
+
+服务器启动：
+
+```sh
+cd /opt/classroom-inbox
+sudo docker compose config --quiet
+sudo docker compose up -d --build --force-recreate
+sudo docker compose ps
+sudo docker compose logs --tail=100 -f app caddy
+```
+
+`Ctrl+C` 退出日志查看，容器继续运行。浏览器访问 `http://你的服务器公网IP/` 查看学生待办，`http://你的服务器公网IP/admin` 登录管理端；健康检查为 `http://你的服务器公网IP/api/health`。所有分享、填写和上传均使用同一 IP 与端口。
+
+如果浏览器报 SSL 错误，先确认地址栏完整填写 `http://`，并在服务器检查：
+
+```sh
+curl -I http://你的服务器公网IP/
+sudo docker compose config --services
+sudo docker compose logs --tail=100 caddy
+```
+
+若 HTTP 响应仍包含跳转到 `https://` 的 `Location`，检查新配置文件是否已上传，并明确选择 HTTP 配置重新创建服务：
+
+```sh
+sudo docker compose -f compose.http.yaml config --quiet
+sudo docker compose -f compose.http.yaml up -d --build --force-recreate
+```
+
+若 curl 能正常访问 HTTP、浏览器仍强制 HTTPS，检查浏览器的“始终使用安全连接”设置，允许该 IP 使用 HTTP。不要通过忽略证书错误来代替正确的 HTTP 配置。
+
+若 80 端口已被其他服务占用，可改为 `HTTP_PORT=8080`、`APP_URL=http://你的服务器公网IP:8080`，同时开放 TCP 8080，再重新创建容器。公网仍无需开放应用的 3000 端口。
+
+两种配置使用相同 Compose 项目名与数据库卷，切换时保留数据。不要用 `down -v`。HTTP 的管理密码和提交内容以明文传输，建议先用于部署验证，后续配置 HTTPS。
+
+有域名后，先备份数据库，配置好 DNS，再将服务器 `.env` 改为：
+
+```dotenv
+COMPOSE_FILE=compose.yaml
+DOMAIN=你的域名
+APP_URL=https://你的域名
+ACME_EMAIL=你的证书联系邮箱
+COOKIE_SECURE=true
+TRUST_PROXY=true
+```
+
+开放 TCP 80/443，再执行 `sudo docker compose up -d --build --force-recreate`。HTTPS 验证完成后重新分享首页和任务链接；已发出的 IP 链接需替换。
+
 下文中 `ubuntu` 是示例 SSH 用户名，按服务器实际账户替换；`homework.example.com`、`你的服务器公网IP`、`YOUR_BUCKET_NAME` 都要换成自己的值。标注“本机”的命令在你的 Mac 执行，标注“服务器”的命令通过 SSH 执行。
 
 ## 1. 准备服务器、域名和网络
@@ -147,7 +211,7 @@ sudo docker run --rm oven/bun:1.4.4 bun --version
 cd "/Users/dylansu/Documents/ChatGPT/班级相关事物"
 
 COPYFILE_DISABLE=1 tar -czf /tmp/classroom-inbox.tar.gz \
-  Dockerfile compose.yaml deploy package.json bun.lock \
+  Dockerfile compose.yaml compose.http.yaml deploy package.json bun.lock \
   nuxt.config.ts tsconfig.json .env.example .dockerignore .gitignore \
   README.md DEPLOYMENT.md app server shared public scripts docs tests
 
@@ -367,3 +431,30 @@ df -h
 当前使用单服务器、单应用实例和 SQLite 持久卷。后续扩展多实例时，需先将数据库迁移到支持并发共享的数据库。历史成功上传的 OBS 文件不会自动删除，应按班级保留周期维护。
 
 本地已完成构建和模拟存储联调；真实云服务器上的 Docker 镜像构建、HTTPS 与 OBS 读写以上述上线验收结果为准。
+
+## 11. 停止和卸载
+
+以下命令均在服务器执行，读取 `.env` 中选定的 Compose 配置。只停止并移除本项目容器与网络，保留数据库卷和源码：
+
+```sh
+cd /opt/classroom-inbox
+sudo docker compose down --remove-orphans
+```
+
+需要彻底删除本项目时，先保存需要的数据库备份及 `.env` 配置。下面第一条命令会删除持久卷中的名单、事务、原始通知、表单答案、提交索引和证书数据，并移除本地构建的应用镜像；第二组命令删除源码目录及其中的配置和宿主机备份：
+
+```sh
+cd /opt/classroom-inbox
+sudo docker compose down -v --remove-orphans --rmi local
+```
+
+确认上一条成功后执行：
+
+```sh
+cd /opt
+sudo rm -rf /opt/classroom-inbox
+```
+
+如果 `.env` 中选择了尚未上传的 `compose.http.yaml`，可在卸载命令中显式加 `-f compose.yaml` 使用原来的配置；原配置仍需能够通过变量校验。
+
+OBS 文件和服务器的 Docker 镜像加速配置会保留。要清理 OBS 文件，在控制台核对目标桶与应用前缀后单独删除；其他应用共用的镜像、Docker 本身和镜像源无需随本项目卸载。

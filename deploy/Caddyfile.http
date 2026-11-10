@@ -1,0 +1,13 @@
+:80 {
+  encode zstd gzip
+  request_body {
+    max_size 101MiB
+  }
+  reverse_proxy app:3000 {
+    # Accept client IPs only from this proxy, just as in the HTTPS configuration.
+    header_up X-Forwarded-For {remote_host}
+    transport http {
+      response_header_timeout 300s
+    }
+  }
+}

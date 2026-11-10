@@ -22,6 +22,8 @@ Bun + Nuxt 4 + Vue 3，华为云 OBS 存文件，Bun SQLite 存名单、作业�
 
 ## 本地启动
 
+没有域名时可使用 `compose.http.yaml`，通过公网 IP 访问。服务器 `.env` 设置 `COMPOSE_FILE=compose.http.yaml`、`APP_URL=http://服务器公网IP`、`COOKIE_SECURE=false`、`TRUST_PROXY=true`，然后运行 `docker compose up -d --build`。默认监听 80 端口，OBS 配置不变；详细步骤见 [无域名部署](DEPLOYMENT.md#没有域名使用公网-ip--http)。HTTP 连接不加密，适合先完成部署验证。
+
 建议使用 Bun 1.4.4 或更新版本。Bun 1.3.8 已完成构建验证，但运行当前 Nuxt CLI 时会提示其兼容的 Node 版本偏旧。
 
 ```sh
