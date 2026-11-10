@@ -1,172 +1,369 @@
-# 云端部署步骤
+# 完整云端部署流程
 
-推荐：一台华为云 ECS 或其他 Linux 云服务器，运行 Docker Compose；Caddy 负责 HTTPS；作业文件存入华为云 OBS；名单和提交索引保存在 Docker 持久卷。
+本文以 **Ubuntu 24.04 LTS 云服务器 + Docker Compose + Caddy HTTPS + 华为云 OBS** 为例。应用运行一个实例：OBS 保存上传的文件，Docker 持久卷中的 SQLite 保存名单、作业、事务、原始通知、表单答案和提交索引。
 
-## 1. 准备服务器和域名
+项目的 Dockerfile、Compose 和文档使用通用镜像名。**专属镜像加速地址只填写在服务器的 `/etc/docker/daemon.json` 中**，不写入源码、`.env.example` 或部署包。
 
-使用可运行 Docker 的 Linux 服务器。2 核 2 GB 可作为小班级的起点，多人同时上传大文件时建议增加内存。部署一份应用实例即可。
+下文中 `ubuntu` 是示例 SSH 用户名，按服务器实际账户替换；`homework.example.com`、`你的服务器公网IP`、`YOUR_BUCKET_NAME` 都要换成自己的值。标注“本机”的命令在你的 Mac 执行，标注“服务器”的命令通过 SSH 执行。
 
-安装 Docker Engine 与 Compose 插件，按服务器发行版采用 [Docker 官方安装步骤](https://docs.docker.com/engine/install/)。安装后检查：
+## 1. 准备服务器、域名和网络
+
+准备一台 Ubuntu 24.04 LTS 服务器，可从 2 核 4 GB 内存开始；多人同时上传大文件时按内存使用情况扩容。保留足够磁盘空间用于 Docker 镜像、SQLite 和备份。
+
+在域名服务商添加 DNS 记录：
+
+| 类型 | 主机记录 | 值 |
+| --- | --- | --- |
+| A | homework | 服务器公网 IPv4 |
+
+该例最终域名为 `homework.example.com`。如果配置 AAAA，IPv6 也必须能到达该服务器。
+
+在云服务器安全组配置入站规则，并检查已有的主机防火墙也允许网站端口：
+
+| 端口 | 来源 | 用途 |
+| --- | --- | --- |
+| TCP 22 | 管理员自己的公网 IP | SSH；若服务器改了 SSH 端口，以实际值为准 |
+| TCP 80 | 所有访问者 | HTTP 跳转及 HTTPS 证书验证 |
+| TCP 443 | 所有访问者 | HTTPS |
+| UDP 443 | 所有访问者，可选 | HTTP/3 |
+
+应用的 3000 端口由 Docker 内部网络访问。确认服务器的 80、443 没有被其他网站服务占用。
+
+中国大陆节点的网站需先按接入商要求完成备案再开通访问；已在其他接入商备案的域名也需确认接入要求。参见[华为云备案说明](https://support.huaweicloud.com/icp_faq/icp_05_0145.html)。
+
+本机登录服务器：
 
 ```sh
-docker --version
-docker compose version
+ssh ubuntu@你的服务器公网IP
 ```
 
-将域名（例如 `homework.example.com`）的 A 记录指向服务器公网 IP。若设置 AAAA 记录，也需确保 IPv6 可访问。
+## 2. 创建 OBS 私有桶和应用访问密钥
 
-安全组开放 TCP 80、443；SSH 22 只开放给管理员来源 IP。应用的 3000 端口不需要开放。443/UDP 用于可选 HTTP/3，不开放也能使用 HTTPS。
+在华为云控制台进入“对象存储服务 OBS”，创建一个**私有、标准存储**桶。建议应用服务器与 OBS 使用同一区域。记录桶名、区域和区域服务 Endpoint。
 
-若选择中国大陆节点，域名接入前按云厂商流程完成所需备案。具体要求以服务商当前规定为准。
+例如使用华东上海一区时，配置为：
 
-## 2. 创建 OBS 私有桶和 IAM 凭证
+```dotenv
+OBS_BUCKET=你的实际桶名
+OBS_REGION=cn-east-3
+OBS_ENDPOINT=https://obs.cn-east-3.myhuaweicloud.com
+OBS_PREFIX=classroom
+```
 
-1. 在华为云 OBS 创建标准存储桶，记录桶名、区域、对应 Endpoint。
-2. 保持桶和对象私有；不要启用匿名读取或公开写入。
-3. 为此应用创建专用 IAM 用户及 AK / SK，限定到目标桶。应用需要读取、上传、删除对象，以及检查桶是否可访问的权限。删除用于失败上传回滚；历史成功提交会保留。
-4. 确认区域与 Endpoint 一致，例如区域 `cn-east-3` 对应 `https://obs.cn-east-3.myhuaweicloud.com`。不要将桶名前缀拼进 `OBS_ENDPOINT`。
+Endpoint 填区域端点，不包含桶名。桶和对象保持私有；浏览器经应用服务端上传下载，应用不需要 OBS 浏览器 CORS 配置。
 
-本应用按你提供的项目使用 S3 兼容 API。官方资料：[OBS 文档](https://support.huaweicloud.com/obs/index.html)、[访问控制说明](https://support.huaweicloud.com/intl/zh-cn/productdesc-obs/obs_03_0391.html)。浏览器不直接访问 OBS，无需配置浏览器 CORS。
+在 IAM 创建应用专用用户，启用编程访问并生成访问密钥 AK/SK。将用户加入专用用户组，并给该组授予限定到此桶的自定义权限。
 
-## 3. 上传项目
+项目已提供两种授权模型的模板，选择与你的 IAM 控制台一致的一种：
 
-将项目放在服务器的 `/opt/classroom-inbox`。如果项目已推送到你自己的 Git 仓库，可在服务器克隆该仓库；当前目录没有远程仓库时，可通过 SCP 或 SFTP 上传源码。
+| 控制台授权模型 | 模板 | Version |
+| --- | --- | --- |
+| 身份策略授权，新版 IAM | `deploy/obs-iam-v5.example.json` | `5.0` |
+| 角色与策略授权，旧版 IAM | `deploy/obs-iam-v3.example.json` | `1.1` |
 
-上传时不包含 `node_modules`、`.nuxt`、`.output` 和测试产物。`.env` 只通过受控方式传到服务器，也可以在服务器重新生成；不要提交 Git。以下步骤都在项目目录执行：
+操作顺序：创建自定义策略 → 选 JSON 视图 → 粘贴对应模板 → 将两处 `YOUR_BUCKET_NAME` 改为实际桶名 → 保存 → 授予用户组 → 将应用用户加入用户组。旧版 OBS 策略使用“全局服务”授权范围。按控制台的策略类型选择模板，不要混用新版和旧版的授权项大小写。
+
+模板仅授权以下应用操作：
+
+| 操作 | 资源范围 | 用途 |
+| --- | --- | --- |
+| HeadBucket | 指定桶 | 管理端测试桶连接 |
+| PutObject | 桶内 `classroom/*` | 上传文件 |
+| GetObject | 桶内 `classroom/*` | 下载文件与打包 ZIP |
+| DeleteObject | 桶内 `classroom/*` | 上传失败后的回滚清理 |
+
+如果修改 `OBS_PREFIX`，同时修改模板中的 `classroom/*`。这套权限供应用 API 使用，不包含专用 IAM 用户浏览 OBS 控制台所需的列举权限。管理员可用原有管理账号查看桶。
+
+官方说明：[新版 IAM 授权项](https://support.huaweicloud.com/api-obs/obs_04_0112.html)、[新版身份策略样例](https://support.huaweicloud.com/perms-cfg-obs/obs_40_0055.html)、[旧版角色与策略授权](https://support.huaweicloud.com/perms-cfg-obs/obs_40_0054.html)。启用额外云服务功能时，按相应官方说明补充所需权限。
+
+## 3. 在服务器安装 Docker
+
+以下命令针对新装 Ubuntu 24.04。已有 Docker Engine 和 Compose 插件的服务器可直接检查版本，跳到第 4 步；其他发行版采用[Docker 对应系统的官方安装步骤](https://docs.docker.com/engine/install/)。
+
+服务器执行，按 [Docker Ubuntu 官方文档](https://docs.docker.com/engine/install/ubuntu/)配置 APT 仓库：
+
+```sh
+sudo apt update
+sudo apt install -y ca-certificates curl nano
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+sudo docker --version
+sudo docker compose version
+```
+
+## 4. 只在服务器配置镜像加速地址
+
+服务器执行：
+
+```sh
+sudo install -m 0755 -d /etc/docker
+sudo nano /etc/docker/daemon.json
+```
+
+没有现有配置时填入下列 JSON，将占位符换成你提供的专属镜像域名；这里的值需要带 `https://`：
+
+```json
+{
+  "registry-mirrors": ["https://你的专属镜像域名"]
+}
+```
+
+已有其他配置时，只增加或修改 `registry-mirrors`，保留其他字段；修改前可将原文件备份到服务器的受控目录。`nano` 用 Ctrl+O、回车保存，再用 Ctrl+X 退出。
+
+校验配置并重启 Docker：
+
+```sh
+sudo dockerd --validate --config-file=/etc/docker/daemon.json
+sudo systemctl restart docker
+sudo docker info
+sudo docker pull oven/bun:1.4.4
+sudo docker pull caddy:2-alpine
+sudo docker run --rm oven/bun:1.4.4 bun --version
+```
+
+`docker info` 的 `Registry Mirrors` 应显示服务器上填写的地址。最后一条预期输出 `1.4.4`。已有其他容器的服务器应在可接受的维护时间重启 Docker。
+
+项目保留 `oven/bun:1.4.4` 和 `caddy:2-alpine` 两个通用镜像名，通过该服务器的 Docker 加速配置拉取。参见[Docker 镜像加速配置](https://docs.docker.com/docker-hub/image-library/mirror/)。
+
+## 5. 从本机上传源码
+
+在你的 **Mac 本机**开一个终端执行以下命令。它只打包明确列出的源码文件，不包含 `.env`、本地数据库、个人名单、依赖目录和测试产物：
+
+```sh
+cd "/Users/dylansu/Documents/ChatGPT/班级相关事物"
+
+COPYFILE_DISABLE=1 tar -czf /tmp/classroom-inbox.tar.gz \
+  Dockerfile compose.yaml deploy package.json bun.lock \
+  nuxt.config.ts tsconfig.json .env.example .dockerignore .gitignore \
+  README.md DEPLOYMENT.md app server shared public scripts docs tests
+
+scp /tmp/classroom-inbox.tar.gz ubuntu@你的服务器公网IP:/tmp/
+```
+
+然后在 **服务器 SSH 终端**执行：
+
+```sh
+sudo mkdir -p /opt/classroom-inbox
+sudo chown "$(id -u):$(id -g)" /opt/classroom-inbox
+cd /opt/classroom-inbox
+tar -xzf /tmp/classroom-inbox.tar.gz
+```
+
+若使用自己的 Git 仓库，也可克隆到同一路径。首次部署默认使用空数据库；如果本机已有需要迁移的事务和提交记录，需迁移第 9 步所述的一致性快照。
+
+## 6. 在服务器生成并填写 .env
+
+服务器执行：
 
 ```sh
 cd /opt/classroom-inbox
-```
-
-若将来迁移本地已有数据，需要一并迁移 SQLite 的一致性备份，见第 7 步；不要在数据库运行中只拷贝主文件而遗漏 WAL。
-
-## 4. 配置 .env
-
-若服务器上没有 `.env`，先生成随机密码和签名密钥：
-
-```sh
-docker run --rm -v "$PWD:/work" -w /work oven/bun:1.4.4 bun scripts/init-env.ts
+sudo docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/work" -w /work \
+  oven/bun:1.4.4 bun scripts/init-env.ts
 chmod 600 .env
 nano .env
 ```
 
-如果 Docker 以 root 运行导致 `.env` 归 root 所有，可用 `sudo nano .env` 编辑。完整字段见 `.env.example`，至少填好：
+脚本会生成随机 `ADMIN_PASSWORD` 和 `SESSION_SECRET`；已有 `.env` 时保留。保留生成的随机值，管理员登录时使用 `ADMIN_PASSWORD`。修改以下字段：
 
 ```dotenv
-ADMIN_PASSWORD=足够长的随机管理密码
-SESSION_SECRET=至少32位的随机签名密钥
 CLASS_NAME=你的班级名称
 
 OBS_ACCESS_KEY_ID=你的AK
 OBS_SECRET_ACCESS_KEY=你的SK
+OBS_SECURITY_TOKEN=
 OBS_BUCKET=你的私有桶名
 OBS_REGION=cn-east-3
 OBS_ENDPOINT=https://obs.cn-east-3.myhuaweicloud.com
 OBS_PREFIX=classroom
 
-APP_URL=https://homework.example.com
 DOMAIN=homework.example.com
+APP_URL=https://homework.example.com
 ACME_EMAIL=你的证书联系邮箱
+
 COOKIE_SECURE=true
 TRUST_PROXY=true
 UPLOAD_MAX_MB=50
+NITRO_BUN_IDLE_TIMEOUT=240
 ```
 
-`DOMAIN` 仅填写域名，`APP_URL` 填含 `https://` 的完整地址。不要保留示例域名。使用特殊符号（如 `$`、`#`）的值时，在 `.env` 中用单引号包裹；生成脚本默认使用无需特殊转义的随机字符。
+区域和 Endpoint 按真实桶修改。普通 AK/SK 的 `OBS_SECURITY_TOKEN` 留空；使用临时凭证时需填写配套 token 并在过期前更新。
 
-Compose 将 `.env` 注入服务端；Dockerfile 不会将 `.env` 复制进镜像。Compose 强制启用安全 Cookie 和可信代理，并固定容器内数据库目录为 `/app/.data`。
+`DOMAIN` 只填域名；`APP_URL` 填同一域名的完整 HTTPS 地址，不附加路径。使用 `$`、`#` 等特殊字符的值时，用单引号包裹。完整变量解释见 README。
 
-## 5. 构建和启动
+Compose 把 `.env` 注入服务端，强制开启 HTTPS Cookie 和可信代理，并将数据库固定存入 `/app/.data` 持久卷。镜像构建排除了 `.env`。服务器的镜像加速地址不需要写入此文件。
+
+## 7. 构建、启动和验证 HTTPS
+
+服务器执行：
 
 ```sh
-docker compose build
-docker compose up -d
-docker compose ps
-docker compose logs --tail=100 app caddy
+cd /opt/classroom-inbox
+sudo docker compose config --quiet
+sudo docker compose build app
+sudo docker compose up -d
+sudo docker compose ps
+sudo docker compose logs --tail=100 app caddy
 ```
 
-首次构建会下载 npm 依赖。服务健康后，Caddy 自动为域名申请证书并将 HTTP 跳转到 HTTPS。需确保 DNS 生效，80 / 443 可达，域名未被其他代理错误转发。证书行为详见 [Caddy 自动 HTTPS](https://caddyserver.com/docs/automatic-https)。
+首次构建会下载 npm 依赖。镜像加速配置负责 Docker 镜像拉取，Bun 安装依赖还需服务器能访问 npm registry。
 
-检查健康状态：
+应用健康后，Caddy 自动为域名申请并续期证书，并将 HTTP 跳转到 HTTPS；DNS、80/443 和持久证书目录需正常。参见[Caddy 自动 HTTPS 文档](https://caddyserver.com/docs/automatic-https)。
+
+验证：
 
 ```sh
 curl -fsS https://homework.example.com/api/health
 ```
 
-预期返回 `{"status":"ok"}`。
+预期返回：
 
-浏览器打开域名即可查看班级待办首页。管理员访问 `/admin` 或点击页底“管理员入口”，用 `.env` 中的 `ADMIN_PASSWORD` 登录：
-
-1. 在“存储设置”测试连接，确认能访问指定桶。
-2. 在“班级名单”上传名单、预览并确认保存。
-3. 发布一份测试作业，复制收集链接。
-4. 用手机或无痕窗口打开链接，输入名单内姓名和学号并上传小文件。
-5. 管理端刷新，确认统计更新，并分别测试单文件下载、ZIP 打包、CSV 导出。
-6. 打开“班级事务 → JSON 导入”，复制提示词或载入格式示例，修改截止时间，校验后确认。测试内置表单填写、结果导出，以及文件类事务的收集入口。外部链接事务需要手动标记完成。每项事务保留原始通知。
-7. 无痕打开 `https://你的域名/`，检查当前开放的表单、文件任务和原始通知；将该地址发到班群。名单、答案和下载入口仍由管理登录保护。
-
-存储连接测试检查桶访问；实际上传 / 下载仍需完成第 4、5 项，以确认对象读写权限。未填写真实云端凭证前，开发环境测试不能代替这一步。
-
-## 6. 日常更新
-
-更新服务器上的源码或拉取自己的仓库后执行：
-
-```sh
-docker compose exec -T app bun scripts/backup.ts
-docker compose build app
-docker compose up -d --no-deps app
-docker compose ps
+```json
+{"status":"ok"}
 ```
 
-配置变更后用 `docker compose up -d --force-recreate app` 重新创建应用容器，确保读取新的 `.env`；单纯 `restart` 不会重新读取 Compose 的 env_file。
+这表示应用可访问，尚未验证真实 OBS 文件读写。
 
-数据在 `classroom_data` 持久卷中，正常重建容器不会丢失。不要执行 `docker compose down -v`，它会删除数据卷和证书卷。
+## 8. 首次管理员设置与验收
 
-## 7. 备份、下载和恢复数据库
+打开 `https://你的域名/admin`，用服务器 `.env` 中的 `ADMIN_PASSWORD` 登录。
 
-创建包含已提交 WAL 数据的一致性快照，脚本还会校验备份完整性：
+1. **存储设置**：点击测试连接，确认指定桶可访问。
+2. **班级名单**：上传 JSON、CSV 或 Excel，核对预览后确认导入。可以在本机浏览器选择 `private-imports/班级名单.json`；该个人文件没有进入部署包。
+3. **测试收文件**：发布一份测试作业，填写原始通知并复制收集链接；用手机或无痕窗口输入名单内的姓名、学号，上传一个小文件。
+4. **验证下载与统计**：管理端检查人数，分别下载单文件、ZIP、提交情况 CSV；在 OBS 控制台用管理账号确认出现 `classroom/` 前缀对象。再重交一次确认有效记录更新。
+5. **测试班级事务**：进入“班级事务 → JSON 导入”，复制提示词或导入样例，修改日期和内容，校验预览后确认。分别测试内置表单、外部链接、文件收集。原始通知必须保留；外部链接的完成状态由管理员维护。
+6. **检查学生首页**：无痕访问 `https://你的域名/`，确认开放任务、截止时间、原始通知和办理入口正确，再把该首页地址发给同学。
+
+学生首页为 `/`，管理入口为 `/admin`，旧地址 `/classroom` 会跳转到首页。名单、答案和管理员下载接口由登录保护。
+
+管理端连接测试使用 HeadBucket；第 3、4 项才验证上传与下载权限。初次上线必须用真实 OBS 完成这一轮。
+
+## 9. 备份、迁移和恢复
+
+### 创建并下载备份
+
+服务器执行以下命令，生成包含已提交 WAL 数据的一致性快照，并校验数据库完整性：
 
 ```sh
-docker compose exec -T app bun scripts/backup.ts
+cd /opt/classroom-inbox
+sudo docker compose exec -T app bun scripts/backup.ts
 ```
 
-输出类似 `/app/.data/backups/classroom-2026-11-10T12-00-00-000Z.sqlite`。用该实际路径下载到宿主机，再复制到其他服务器或离线位置：
+记录输出的实际路径，例如 `/app/.data/backups/classroom-2026-11-10T12-00-00-000Z.sqlite`。将真实文件名替换到下面命令：
 
 ```sh
 mkdir -p backups
-docker compose cp app:/app/.data/backups/实际备份文件名.sqlite ./backups/
+chmod 700 backups
+sudo docker compose cp app:/app/.data/backups/实际备份文件名.sqlite ./backups/
+sudo chown "$(id -u):$(id -g)" ./backups/实际备份文件名.sqlite
+chmod 600 ./backups/实际备份文件名.sqlite
 ```
 
-可用服务器已有的备份调度工具定期运行。备份含名单和收集令牌，限制读取权限。保留独立的 `.env` 安全副本；OBS 对象也应按你的保留策略配置版本控制或其他备份措施。SQLite 备份只包含索引，不包含作业文件本身。
-
-恢复时先停止应用，再向持久卷放入校验过的快照（把路径换成真实备份）：
+在 Mac 本机下载到受控目录：
 
 ```sh
-docker compose stop app
-docker compose run --rm --no-deps --user root \
-  -v "$PWD/backups:/restore:ro" --entrypoint sh app -c \
-  'rm -f /app/.data/classroom.sqlite-wal /app/.data/classroom.sqlite-shm && cp /restore/实际备份文件名.sqlite /app/.data/classroom.sqlite && chown bun:bun /app/.data/classroom.sqlite && chmod 600 /app/.data/classroom.sqlite'
-docker compose up -d app
+mkdir -p "$HOME/classroom-backups"
+chmod 700 "$HOME/classroom-backups"
+scp ubuntu@你的服务器公网IP:/opt/classroom-inbox/backups/实际备份文件名.sqlite "$HOME/classroom-backups/"
+chmod 600 "$HOME/classroom-backups/实际备份文件名.sqlite"
 ```
 
-这一步会替换当前数据库，执行前保存当前状态。恢复后需沿用原 OBS 桶与前缀对应的对象，才能下载旧作业。
+备份包含名单、表单答案和收集令牌，保留访问限制。使用服务器已有的备份调度工具定期执行，并保留服务器之外的副本；备份成功验证后再按保留周期清理旧副本，避免备份持续占满磁盘。
 
-## 8. 常见问题
+SQLite 快照包含文件索引，**OBS 中的作业文件需另外保留或备份**；同时保存 `.env` 的受控副本。迁移时沿用原桶及前缀对应的对象。运行中的数据库使用备份脚本导出，不直接拷贝主数据库文件。
+
+本机开发数据可在项目目录运行 `bun run backup`，把输出快照传到服务器的 `backups/` 后按下面流程恢复。服务器 `.env` 仍需使用正式域名和配置。
+
+### 恢复数据库
+
+恢复会替换当前数据库。先按上面的步骤备份当前状态，再将目标快照放进服务器项目的 `backups/`。以下命令中的实际备份文件名必须替换成真实值。
+
+服务器执行：
+
+```sh
+cd /opt/classroom-inbox
+sudo docker compose stop app
+sudo docker compose run --rm --no-deps --user root \
+  -v "$PWD/backups:/restore:ro" --entrypoint sh app -ec '
+    bun -e '\''
+      const { Database } = require("bun:sqlite");
+      const db = new Database("/restore/实际备份文件名.sqlite", { readonly: true });
+      const result = db.query("PRAGMA integrity_check").get();
+      db.close();
+      if (result.integrity_check !== "ok") throw new Error("备份校验失败");
+    '\''
+    cp /restore/实际备份文件名.sqlite /app/.data/classroom.sqlite.restore
+    chown bun:bun /app/.data/classroom.sqlite.restore
+    chmod 600 /app/.data/classroom.sqlite.restore
+    rm -f /app/.data/classroom.sqlite-wal /app/.data/classroom.sqlite-shm
+    mv /app/.data/classroom.sqlite.restore /app/.data/classroom.sqlite
+  '
+sudo docker compose up -d
+```
+
+恢复后检查首页、登录、统计和旧文件下载。校验或复制失败时先处理错误，再决定恢复或启动原数据库。
+
+## 10. 更新和日常运维
+
+每次更新先执行第 9 步备份，并将快照复制出容器。然后重新上传解压源码，或拉取自己的仓库，再执行：
+
+```sh
+cd /opt/classroom-inbox
+sudo docker compose build app
+sudo docker compose up -d --no-deps app
+sudo docker compose ps
+curl -fsS https://homework.example.com/api/health
+```
+
+正常重建不会删除 `classroom_data` 卷。**不要执行 `docker compose down -v`**，该命令会删除数据库卷和证书卷。
+
+修改 `.env` 后执行以下命令，重新注入配置；若修改了域名或证书邮箱，同时让 Caddy 应用新配置：
+
+```sh
+sudo docker compose up -d --force-recreate app caddy
+```
+
+单纯 `restart` 不会重新读取 Compose 的 env_file。修改管理员密码同样编辑 `.env` 后重建容器；密码改变会使已有管理会话失效。
+
+常用查看命令：
+
+```sh
+sudo docker compose ps
+sudo docker compose logs --tail=100 app caddy
+sudo docker stats --no-stream
+df -h
+```
 
 | 现象 | 检查 |
 | --- | --- |
-| 登录后又回到登录页 | 必须通过 HTTPS 访问；`APP_URL` 与实际域名一致 |
-| 跨站提交被拒绝 | 检查 `APP_URL`，不要混用 IP、HTTP 和另一个域名 |
-| OBS 连接 / 上传失败 | 检查区域、Endpoint、AK / SK、桶名、IAM 权限与服务器出站网络 |
-| 413 请求过大 | 单文件限制在发布作业时设定；每批最多 5 个文件、100 MB；Caddy 接收上限 101 MiB |
-| ZIP 下载中断 | 检查 OBS 对象是否被外部删除、网络连接和代理超时；ZIP 需要从 OBS 实时读取 |
-| 无法申请 HTTPS 证书 | 检查 DNS A / AAAA、80 / 443、安全组及证书申请日志 |
-| 更新 .env 后未生效 | 运行 `docker compose up -d --force-recreate app` |
-| 更新名单后旧作业人数没变 | 这是名单快照设计；新作业才使用新名单 |
-| 忘记管理密码 | 在服务器 `.env` 更新 `ADMIN_PASSWORD`，重新创建应用容器 |
+| Docker 镜像拉取失败 | 服务器的镜像源配置、镜像站可用性与额度、出站网络；`docker info` 确认配置生效 |
+| Bun 安装依赖超时 | 检查 npm registry 网络；Docker 镜像加速不会代理 npm |
+| HTTPS 证书申请失败 | DNS A/AAAA、80/443、安全组、端口占用和 Caddy 日志 |
+| 登录后返回登录页 | 使用 HTTPS，确认 `APP_URL` 与浏览器地址一致 |
+| 跨站提交被拒绝 | 检查 `APP_URL`，统一通过正式 HTTPS 域名访问 |
+| OBS 连接成功但上传失败 | 桶连接和对象权限独立；检查 PutObject、前缀范围、AK/SK、区域 |
+| OBS 下载失败 | 检查 GetObject 权限、对象是否存在，确认恢复的数据对应原桶对象 |
+| 413 请求过大 | 每批最多 5 个文件、100 MiB；单文件还受任务设置和 `UPLOAD_MAX_MB` 限制 |
+| 上传时内存不足 | 上传经过服务器内存，降低单文件限制或增加内存，查看容器日志和资源使用 |
+| 更新名单后旧作业人数没变 | 旧作业使用发布时的名单快照，新作业使用新名单 |
+| 改 .env 没生效 | 用 `up -d --force-recreate` 重新创建容器 |
+| 磁盘空间不足 | 检查旧数据库备份、镜像和日志；保留数据库持久卷 |
 
-## 部署边界
+当前使用单服务器、单应用实例和 SQLite 持久卷。后续扩展多实例时，需先将数据库迁移到支持并发共享的数据库。历史成功上传的 OBS 文件不会自动删除，应按班级保留周期维护。
 
-当前为单服务器、单应用实例设计，SQLite 必须挂载持久卷。不要直接部署到会清空本地磁盘的临时函数环境。若以后需要多实例或学校统一登录，可将索引迁移至 PostgreSQL 并接入 SSO。
-
-上传会经过服务器内存，批量大文件会增加内存和服务器流量；小班级场景适用。应用没有自动删除历史提交文件，后续需根据实际保留周期安排清理。
+本地已完成构建和模拟存储联调；真实云服务器上的 Docker 镜像构建、HTTPS 与 OBS 读写以上述上线验收结果为准。

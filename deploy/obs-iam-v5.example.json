@@ -1,0 +1,19 @@
+{
+  "Version": "5.0",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["obs:bucket:headBucket"],
+      "Resource": ["obs:*:*:bucket:YOUR_BUCKET_NAME"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "obs:object:putObject",
+        "obs:object:getObject",
+        "obs:object:deleteObject"
+      ],
+      "Resource": ["obs:*:*:object:YOUR_BUCKET_NAME/classroom/*"]
+    }
+  ]
+}
