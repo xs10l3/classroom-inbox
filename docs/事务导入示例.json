@@ -1,0 +1,43 @@
+[
+  {
+    "title": "班级活动报名",
+    "original_notice": "请全班同学在 2030 年 12 月 1 日 20:00 前填写是否参加班级活动。不能参加的同学也请填写。",
+    "category": "班级活动",
+    "description": "请选择是否参加本次班级活动。",
+    "mode": "form",
+    "due_at": "2030-12-01T20:00:00+08:00",
+    "fields": [
+      {
+        "key": "participation",
+        "label": "是否参加",
+        "type": "select",
+        "required": true,
+        "options": [
+          "参加",
+          "不参加"
+        ]
+      },
+      {
+        "key": "remark",
+        "label": "备注",
+        "type": "textarea",
+        "required": false
+      }
+    ]
+  },
+  {
+    "title": "课程作业收集",
+    "original_notice": "请于 2030 年 12 月 2 日 23:59 前提交课程作业，PDF 或 Word 格式，单文件不超过 20 MB。",
+    "category": "课程作业",
+    "description": "提交 PDF 或 Word 文件。",
+    "mode": "files",
+    "due_at": "2030-12-02T23:59:00+08:00",
+    "collection": {
+      "extensions": [
+        "pdf",
+        "docx"
+      ],
+      "max_size_mb": 20
+    }
+  }
+]

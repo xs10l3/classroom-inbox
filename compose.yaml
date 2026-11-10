@@ -1,0 +1,57 @@
+name: classroom-inbox
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      NITRO_BUN_IDLE_TIMEOUT: '240'
+      DATA_DIR: /app/.data
+      COOKIE_SECURE: 'true'
+      TRUST_PROXY: 'true'
+    volumes:
+      - classroom_data:/app/.data
+    expose:
+      - '3000'
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Please set DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Please set ACME_EMAIL in .env}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+volumes:
+  classroom_data:
+  caddy_data:
+  caddy_config:

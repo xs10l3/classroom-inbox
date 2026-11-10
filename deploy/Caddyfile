@@ -1,0 +1,18 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+  encode zstd gzip
+  request_body {
+    max_size 101MiB
+  }
+  header Strict-Transport-Security "max-age=31536000"
+  reverse_proxy app:3000 {
+    # Explicitly replace incoming forwarding headers; the app trusts only this proxy.
+    header_up X-Forwarded-For {remote_host}
+    transport http {
+      response_header_timeout 300s
+    }
+  }
+}
