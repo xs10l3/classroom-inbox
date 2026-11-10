@@ -12,6 +12,8 @@ import {
   Menu,
   X,
   RefreshCw,
+  CalendarDays,
+  ClipboardCheck,
 } from 'lucide-vue-next'
 import { apiError } from '~/utils/format'
 const route = useRoute()
@@ -22,6 +24,8 @@ const refreshing = ref(false)
 const nav = [
   { path: '/admin', label: '作业总览', icon: LayoutDashboard },
   { path: '/affairs', label: '班级事务', icon: ClipboardList },
+  { path: '/leaves', label: '请假管理', icon: ClipboardCheck },
+  { path: '/evening-settings', label: '晚自习设置', icon: CalendarDays },
   { path: '/students', label: '班级名单', icon: UsersRound },
   { path: '/archives', label: '文件归档', icon: FolderArchive },
   { path: '/settings', label: '存储设置', icon: Settings2 },
@@ -45,7 +49,10 @@ watch(
 )
 async function reload() {
   refreshing.value = true
-  await Promise.all([refresh(), refreshNuxtData('classroom-affairs')])
+  await Promise.all([
+    refresh(),
+    refreshNuxtData(['classroom-affairs', 'evening-admin', 'daily-leaves']),
+  ])
   refreshing.value = false
 }
 async function logout() {

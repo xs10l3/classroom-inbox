@@ -90,3 +90,47 @@ export interface ClassBoardItem {
   dueAt: string
   url: string
 }
+
+export interface EveningSettings {
+  enabled: boolean
+  weekdays: number[]
+  startDate: string
+  endDate: string
+  startTime: string
+  endTime: string
+  originalNotice: string
+}
+
+export interface EveningAdjustment {
+  id: string
+  studentId: string
+  studentName: string
+  kind: 'permanent' | 'dates'
+  sourceWeekday: number | null
+  targetWeekday: number | null
+  effectiveFrom: string
+  sourceDate: string
+  targetDate: string
+  reason: string
+  status: 'pending' | 'approved' | 'rejected' | 'revoked' | 'withdrawn'
+  createdBy: 'student' | 'admin'
+  createdAt: string
+  reviewedAt: string
+  reviewNote: string
+  inactiveFrom: string
+}
+
+export interface LeaveRecord {
+  id: string
+  studentId: string
+  studentName: string
+  kind: 'evening' | 'course'
+  date: string
+  courseName: string
+  startAt: string
+  endAt: string
+  reason: string
+  createdAt: string
+  cancelledAt: string
+  proof: { id: string; name: string; size: number; createdAt: string } | null
+}

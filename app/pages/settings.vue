@@ -43,6 +43,11 @@ const envLines =
       <p>作业存入华为云 OBS，班级记录保存在服务器。</p>
     </div>
   </section>
+  <NuxtLink to="/evening-settings" class="board-leave-entry"
+    ><span
+      ><strong>晚自习设置</strong><small>每周日期、安排结束日期、个人调整与申请审核</small></span
+    ><ArrowUpRight :size="22"
+  /></NuxtLink>
   <div class="settings-columns">
     <section class="content-panel storage-card">
       <div class="storage-card-heading">

@@ -523,6 +523,15 @@ try {
     'Form roster snapshots, answer validation, updates, missing CSV, closure/deadline and OBS collection progress',
   )
 
+  const { runLeaveChecks } = await import('./leaves.integration')
+  await runLeaveChecks(
+    api,
+    () => {
+      failNextPut = true
+    },
+    pass,
+  )
+
   const backupProcess = Bun.spawn(
     [process.execPath, resolve('scripts/backup.ts'), join(temp, 'backups')],
     {
@@ -540,13 +549,23 @@ try {
     (backupDb.query('SELECT COUNT(*) AS count FROM form_responses').get() as any).count,
     1,
   )
+  assert.equal(
+    (backupDb.query('SELECT COUNT(*) AS count FROM evening_settings').get() as any).count,
+    1,
+  )
+  assert((backupDb.query('SELECT COUNT(*) AS count FROM leave_requests').get() as any).count > 0)
+  assert((backupDb.query('SELECT COUNT(*) AS count FROM leave_proofs').get() as any).count > 0)
   assert.equal((backupDb.query('PRAGMA integrity_check').get() as any).integrity_check, 'ok')
   backupDb.close()
-  pass('Live WAL database backup contains affair results and passes integrity verification')
+  pass(
+    'Live WAL database backup preserves affairs, evening settings, leave/proof indices and passes integrity verification',
+  )
 
   if (process.env.BROWSER_TEST === '1') {
     const { runBrowserChecks } = await import('./browser')
     await runBrowserChecks(base)
+    const { runLeaveBrowserChecks } = await import('./leaves.browser')
+    await runLeaveBrowserChecks(base)
   }
 
   assert.equal((await api(`/api/tasks/${task.id}`, json({ closed: true }, 'PATCH'))).status, 200)

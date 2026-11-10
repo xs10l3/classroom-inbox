@@ -101,6 +101,12 @@ onBeforeUnmount(() => {
           ><ListTodo :size="58" :stroke-width="1.1" /><span>✳</span></span
         >
       </section>
+      <NuxtLink to="/leave" class="board-leave-entry"
+        ><span
+          ><strong>请假与个人安排</strong
+          ><small>课程 / 晚自习请假 · 补交假条 · 申请调整 · 查询与取消</small></span
+        ><ArrowRight :size="22"
+      /></NuxtLink>
       <div v-if="showLink" class="board-link-input">
         <label
           >班级待办链接<input

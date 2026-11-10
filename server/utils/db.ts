@@ -55,6 +55,33 @@ export function db() {
       studentName TEXT NOT NULL, answers TEXT NOT NULL, submittedAt TEXT NOT NULL,
       PRIMARY KEY(affairId,studentId)
     );
+    CREATE TABLE IF NOT EXISTS evening_settings (
+      id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS evening_adjustments (
+      id TEXT PRIMARY KEY, studentId TEXT NOT NULL, studentName TEXT NOT NULL,
+      kind TEXT NOT NULL, sourceWeekday INTEGER, targetWeekday INTEGER,
+      effectiveFrom TEXT NOT NULL DEFAULT '', sourceDate TEXT NOT NULL DEFAULT '',
+      targetDate TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL,
+      status TEXT NOT NULL, createdBy TEXT NOT NULL, createdAt TEXT NOT NULL,
+      reviewedAt TEXT NOT NULL DEFAULT '', reviewNote TEXT NOT NULL DEFAULT '',
+      inactiveFrom TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_evening_adjustments_student ON evening_adjustments(studentId,status);
+    CREATE TABLE IF NOT EXISTS leave_requests (
+      id TEXT PRIMARY KEY, studentId TEXT NOT NULL, studentName TEXT NOT NULL,
+      kind TEXT NOT NULL, date TEXT NOT NULL, courseName TEXT NOT NULL,
+      startAt TEXT NOT NULL, endAt TEXT NOT NULL, reason TEXT NOT NULL,
+      createdAt TEXT NOT NULL, cancelledAt TEXT NOT NULL DEFAULT '',
+      proofId TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_leave_date ON leave_requests(date,kind,cancelledAt);
+    CREATE INDEX IF NOT EXISTS idx_leave_student ON leave_requests(studentId,createdAt);
+    CREATE TABLE IF NOT EXISTS leave_proofs (
+      id TEXT PRIMARY KEY, leaveId TEXT NOT NULL REFERENCES leave_requests(id),
+      name TEXT NOT NULL, objectKey TEXT NOT NULL UNIQUE, size INTEGER NOT NULL,
+      createdAt TEXT NOT NULL
+    );
   `)
   // Additive migration preserves installations created before original notices were introduced.
   for (const table of ['tasks', 'affairs']) {

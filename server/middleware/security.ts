@@ -7,6 +7,7 @@ export default defineEventHandler((event) => {
     'Referrer-Policy': 'same-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   })
+  if (event.path.split('?')[0] === '/leave') setHeaders(event, { 'Cache-Control': 'no-store' })
   if (!event.path.startsWith('/api/')) return
   setHeaders(event, { 'Cache-Control': 'no-store' })
   if (['GET', 'HEAD', 'OPTIONS'].includes(event.method)) return

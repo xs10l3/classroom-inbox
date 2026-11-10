@@ -4983,3 +4983,315 @@ tbody tr:hover {
   min-width: 0;
   flex: 1;
 }
+
+/* Leave requests and personal evening-study schedules. */
+.board-leave-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 24px;
+  margin: 0 0 24px;
+  background: #eaf0e3;
+  border: 1px solid #d9e2d0;
+  border-radius: 14px;
+  color: #334c28;
+  text-decoration: none;
+}
+.board-leave-entry span {
+  display: grid;
+  gap: 7px;
+}
+.board-leave-entry small {
+  font-size: 12px;
+  color: #63715a;
+  line-height: 1.6;
+}
+.leave-public {
+  min-height: 100vh;
+  background: #f7f8f3;
+}
+.leave-public .submit-header {
+  max-width: 1100px;
+  margin: auto;
+}
+.leave-workspace {
+  max-width: 960px;
+  margin: auto;
+  padding: 44px 24px 70px;
+}
+.leave-heading {
+  margin-bottom: 30px;
+}
+.leave-heading h1 {
+  font-size: 34px;
+  margin: 12px 0;
+}
+.leave-heading p {
+  color: #69755e;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.leave-panel {
+  margin-bottom: 24px;
+  min-width: 0;
+}
+.leave-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  margin: 0 0 16px;
+  color: #2f4326;
+}
+.leave-panel .form-stack {
+  padding: 0;
+  gap: 18px;
+}
+.leave-help {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #727b6a;
+  margin: 10px 0 18px;
+}
+.leave-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.7;
+}
+.leave-check > input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #53713e;
+  flex: none;
+}
+.leave-weekdays {
+  border: 1px solid #e4e8dd;
+  padding: 16px;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  font-size: 13px;
+}
+.leave-weekdays legend {
+  padding: 0 5px;
+  color: #69755e;
+}
+.leave-identity,
+.leave-record-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.leave-identity {
+  margin-bottom: 22px;
+}
+.leave-identity strong {
+  margin-right: 12px;
+  font-size: 18px;
+}
+.leave-identity span {
+  font-size: 13px;
+  color: #7a8472;
+}
+.leave-date-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.leave-date-chips span {
+  font-size: 12px;
+  background: #f2f5ec;
+  color: #5b6c4c;
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+.leave-tabs {
+  margin: 0 0 24px;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.leave-record {
+  border-top: 1px solid #edf0e7;
+  padding: 20px 0;
+  display: grid;
+  gap: 12px;
+}
+.leave-record:last-child {
+  padding-bottom: 0;
+}
+.leave-record p {
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0;
+  color: #707b65;
+}
+.leave-record-title strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.leave-record-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.leave-record-actions a {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.leave-proof-due {
+  color: #a27833;
+  font-size: 12px;
+}
+.leave-reason {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 380px;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.leave-subheading {
+  margin: 28px 0 16px;
+  font-size: 16px;
+}
+.leave-admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.leave-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+  text-align: left;
+}
+.leave-table th {
+  font-size: 12px;
+  color: #738268;
+  font-weight: 500;
+  background: #f8faf5;
+}
+.leave-table td,
+.leave-table th {
+  padding: 16px;
+  vertical-align: top;
+  border-bottom: 1px solid #edf0e7;
+}
+.leave-table td {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  max-width: 360px;
+}
+.leave-table small {
+  display: block;
+  color: #89927f;
+  margin-top: 8px;
+  line-height: 1.7;
+}
+.leave-review-note {
+  margin-bottom: 12px;
+}
+.leave-daily-toolbar {
+  display: flex;
+  align-items: end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.leave-daily-toolbar > a {
+  margin-left: auto;
+}
+.leave-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 20px;
+  gap: 20px;
+}
+.leave-stats div {
+  display: grid;
+  gap: 10px;
+  border-left: 2px solid #dce6d1;
+  padding-left: 16px;
+}
+.leave-stats strong {
+  font-size: 28px;
+  color: #3b512e;
+}
+.leave-stats span {
+  font-size: 12px;
+  color: #7e8974;
+}
+.leave-student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.leave-student-grid > div {
+  display: grid;
+  gap: 8px;
+  background: #f7f9f3;
+  border-radius: 8px;
+  padding: 16px;
+}
+.leave-student-grid strong {
+  font-size: 14px;
+  color: #435539;
+}
+.leave-student-grid span {
+  font-size: 12px;
+  color: #8b967f;
+}
+@media (max-width: 1100px) {
+  .leave-admin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .leave-workspace {
+    padding: 28px 16px 48px;
+  }
+  .leave-heading h1 {
+    font-size: 27px;
+  }
+  .leave-panel {
+    padding: 20px;
+  }
+  .leave-panel .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .leave-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .leave-daily-toolbar > a {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+  .board-leave-entry {
+    padding: 18px;
+  }
+  .leave-public .submit-header {
+    padding: 18px 16px;
+    gap: 12px;
+  }
+  .leave-public .submit-header .text-link {
+    font-size: 12px;
+  }
+  .leave-record-title .badge {
+    font-size: 11px;
+  }
+  .leave-workspace .inline-actions {
+    gap: 8px;
+  }
+  .leave-tabs button {
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+}
