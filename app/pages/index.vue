@@ -107,6 +107,10 @@ onBeforeUnmount(() => {
           ><small>课程 / 晚自习请假 · 补交假条 · 申请调整 · 查询与取消</small></span
         ><ArrowRight :size="22"
       /></NuxtLink>
+      <NuxtLink to="/fund" class="board-leave-entry board-fund-entry"
+        ><span><strong>班费公示</strong><small>查看班费收支与余额，了解每一笔班费去向</small></span
+        ><ArrowRight :size="22"
+      /></NuxtLink>
       <div v-if="showLink" class="board-link-input">
         <label
           >班级待办链接<input

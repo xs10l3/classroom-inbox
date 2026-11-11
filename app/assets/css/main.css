@@ -5007,6 +5007,14 @@ tbody tr:hover {
   color: #63715a;
   line-height: 1.6;
 }
+.board-fund-entry {
+  background: #edf2f7;
+  border-color: #d9e2ec;
+  color: #344e68;
+}
+.board-fund-entry small {
+  color: #62788d;
+}
 .leave-public {
   min-height: 100vh;
   background: #f7f8f3;
