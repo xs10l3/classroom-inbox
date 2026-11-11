@@ -532,6 +532,9 @@ try {
     pass,
   )
 
+  const { runPreviewChecks } = await import('./preview.integration')
+  await runPreviewChecks(api, pass)
+
   const backupProcess = Bun.spawn(
     [process.execPath, resolve('scripts/backup.ts'), join(temp, 'backups')],
     {

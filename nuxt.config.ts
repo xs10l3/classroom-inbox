@@ -1,3 +1,6 @@
+import { fileURLToPath } from 'node:url'
+import pdfjsPackage from 'pdfjs-dist/package.json'
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-10-01',
   devtools: { enabled: false },
@@ -17,6 +20,11 @@ export default defineNuxtConfig({
   },
   nitro: {
     preset: 'bun',
+    publicAssets: ['cmaps', 'standard_fonts', 'wasm'].map((folder) => ({
+      dir: fileURLToPath(new URL(`./node_modules/pdfjs-dist/${folder}`, import.meta.url)),
+      baseURL: `/pdfjs/${pdfjsPackage.version}/${folder}`,
+      maxAge: 31536000,
+    })),
     externals: { external: ['bun:sqlite'] },
     rollupConfig: { external: ['bun:sqlite'] },
   },

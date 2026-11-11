@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
-defineProps<{ title: string; subtitle?: string }>()
+defineProps<{ title: string; subtitle?: string; wide?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 const panel = ref<HTMLElement>()
 let previousFocus: HTMLElement | null = null
@@ -40,6 +40,7 @@ onBeforeUnmount(() => {
       <section
         ref="panel"
         class="modal-panel"
+        :class="{ 'modal-wide': wide }"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"

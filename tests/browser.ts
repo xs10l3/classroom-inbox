@@ -1,6 +1,7 @@
 import { chromium, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { previewPdf } from './preview-fixtures'
 
 export async function runBrowserChecks(base: string) {
   const browser = await chromium.launch({
@@ -75,7 +76,7 @@ export async function runBrowserChecks(base: string) {
     await student.getByLabel('选择作业文件').setInputFiles({
       name: '网页提交.pdf',
       mimeType: 'application/pdf',
-      buffer: Buffer.from('%PDF-ui-browser-test'),
+      buffer: previewPdf(),
     })
     await student.screenshot({ path: `${screenshots}/submit-mobile.png`, fullPage: true })
     await student.getByRole('button', { name: '确认提交作业' }).click()
@@ -89,6 +90,44 @@ export async function runBrowserChecks(base: string) {
 
     await page.getByRole('button', { name: '刷新提交情况' }).click()
     await expect(page.getByText('网页提交.pdf', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: '预览：网页提交.pdf', exact: true }).click()
+    const preview = page.getByRole('dialog')
+    await expect(preview.getByRole('heading', { name: '文件预览' })).toBeVisible()
+    await expect(preview.locator('canvas[data-rendered-page="1"]')).toBeVisible()
+    await expect(preview.getByText('第 1 / 2 页')).toBeVisible()
+    await preview.getByRole('button', { name: '下一页', exact: true }).click()
+    await expect(preview.locator('canvas[data-rendered-page="2"]')).toBeVisible()
+    await preview.getByRole('button', { name: '上一页', exact: true }).click()
+    await expect(preview.locator('canvas[data-rendered-page="1"]')).toBeVisible()
+    const originalWidth = await preview
+      .locator('canvas')
+      .evaluate((el) => el.getBoundingClientRect().width)
+    await preview.getByRole('button', { name: '放大', exact: true }).click()
+    await expect(preview.getByText('125%', { exact: true })).toBeVisible()
+    await expect
+      .poll(() => preview.locator('canvas').evaluate((el) => el.getBoundingClientRect().width))
+      .toBeGreaterThan(originalWidth)
+    await page.screenshot({ path: `${screenshots}/homework-preview-desktop.png`, fullPage: true })
+    const previewDownload = page.waitForEvent('download')
+    await preview.getByRole('link', { name: '下载原文件', exact: true }).click()
+    expect(await (await previewDownload).failure()).toBeNull()
+    await page.keyboard.press('Escape')
+    await expect(preview).not.toBeVisible()
+    await page.route(
+      '**/api/files/*?preview=1',
+      (route) =>
+        route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: '{}',
+        }),
+      { times: 1 },
+    )
+    await page.getByRole('button', { name: '预览：网页提交.pdf', exact: true }).click()
+    await expect(preview.getByRole('alert')).toContainText('登录已过期')
+    await preview.getByRole('button', { name: '重新加载', exact: true }).click()
+    await expect(preview.locator('canvas[data-rendered-page="1"]')).toBeVisible()
+    await preview.getByRole('button', { name: '关闭弹窗', exact: true }).click()
     await page.getByRole('button', { name: /未提交/ }).click()
     await expect(page.getByText('测试乙', { exact: true })).toBeVisible()
     await expect(page.getByText('测试甲', { exact: true })).not.toBeVisible()
@@ -236,7 +275,7 @@ export async function runBrowserChecks(base: string) {
     expect(adminOverflow).toBe(false)
     expect(errors).toEqual([])
     console.log(
-      '✓ Browser: admin login, JSON roster import, task publish/share, mobile upload/receipt, missing filter, affairs JSON import/prompt clipboard, mobile form/results, external completion, public board filters/original notices, responsive navigation',
+      '✓ Browser: admin login, JSON roster import, task publish/share, mobile upload/receipt, PDF preview/pages/zoom/download, missing filter, affairs JSON import/prompt clipboard, mobile form/results, external completion, public board filters/original notices, responsive navigation',
     )
     console.log(`Screenshots: ${screenshots}`)
   } finally {

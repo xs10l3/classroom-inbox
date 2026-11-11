@@ -1,8 +1,7 @@
 import { isAdmin } from '../../../utils/auth'
 import { requireLeaveStudent } from '../../../utils/leave-auth'
 import { db } from '../../../utils/db'
-import { downloadObject } from '../../../utils/obs'
-import { sendStream } from 'h3'
+import { sendPrivateFile } from '../../../utils/private-file'
 export default defineEventHandler(async (event) => {
   const student = isAdmin(event) ? null : requireLeaveStudent(event)
   const proof = db()
@@ -12,9 +11,5 @@ export default defineEventHandler(async (event) => {
     .get(getRouterParam(event, 'id')!)
   if (!proof || (student && student.studentId !== proof.studentId))
     throw createError({ statusCode: 404, message: '假条不存在' })
-  setHeaders(event, {
-    'Content-Type': 'application/octet-stream',
-    'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(proof.name)}`,
-  })
-  return sendStream(event, await downloadObject(proof.objectKey))
+  return sendPrivateFile(event, proof)
 })

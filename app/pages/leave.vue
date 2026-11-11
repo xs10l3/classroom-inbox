@@ -241,9 +241,12 @@ async function reload() {
             </p>
             <p class="leave-reason">{{ l.reason }}</p>
             <div class="leave-record-actions">
-              <a v-if="l.proof" :href="`/api/leave/proofs/${l.proof.id}`" class="text-link"
-                >查看假条：{{ l.proof.name }}</a
-              ><span v-else class="leave-proof-due">假条待补</span
+              <FileActions
+                v-if="l.proof"
+                :url="`/api/leave/proofs/${l.proof.id}`"
+                :name="l.proof.name"
+              />
+              <span v-else class="leave-proof-due">假条待补</span
               ><template v-if="!l.cancelledAt"
                 ><button class="button secondary small" :disabled="busy" @click="proofFor = l">
                   {{ l.proof ? '更新假条' : '补交假条' }}</button

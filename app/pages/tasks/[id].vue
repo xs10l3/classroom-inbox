@@ -6,7 +6,6 @@ import {
   Search,
   CheckCircle2,
   Clock3,
-  FileDown,
   ClipboardCopy,
   Pause,
   Play,
@@ -17,7 +16,7 @@ import {
   CircleAlert,
 } from 'lucide-vue-next'
 import type { Task, Student, Submission } from '../../../shared/types'
-import { formatDate, formatSize, apiError, localDateInput, inputToIso } from '~/utils/format'
+import { formatDate, apiError, localDateInput, inputToIso } from '~/utils/format'
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 const route = useRoute()
 const { data, refresh, error } = await useFetch<{
@@ -204,14 +203,13 @@ function editDue() {
               </td>
               <td>
                 <div v-if="files(s.studentId).length" class="file-links">
-                  <a
+                  <FileActions
                     v-for="file in files(s.studentId)"
                     :key="file.id"
-                    :href="`/api/files/${file.id}`"
-                    :title="file.originalName"
-                    ><FileDown :size="14" /><span>{{ file.originalName }}</span
-                    ><small>{{ formatSize(file.size) }}</small></a
-                  >
+                    :url="`/api/files/${file.id}`"
+                    :name="file.originalName"
+                    :size="file.size"
+                  />
                 </div>
                 <span v-else class="muted">—</span>
               </td>

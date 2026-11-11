@@ -137,10 +137,12 @@ const shown = computed(
             </td>
             <td class="leave-reason">{{ l.reason }}</td>
             <td>
-              <a v-if="l.proof" class="text-link" :href="`/api/leave/proofs/${l.proof.id}`">{{
-                l.proof.name
-              }}</a
-              ><span v-else class="leave-proof-due">待补假条</span>
+              <FileActions
+                v-if="l.proof"
+                :url="`/api/leave/proofs/${l.proof.id}`"
+                :name="l.proof.name"
+              />
+              <span v-else class="leave-proof-due">待补假条</span>
             </td>
             <td>
               <span class="badge" :class="{ neutral: !!l.cancelledAt }">{{

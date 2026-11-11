@@ -2,6 +2,7 @@ import { chromium, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { addDays, shanghaiDate, weekdayOf } from '../shared/evening'
+import { previewPdf, previewPng } from './preview-fixtures'
 
 export async function runLeaveBrowserChecks(base: string) {
   const browser = await chromium.launch({
@@ -56,10 +57,46 @@ export async function runLeaveBrowserChecks(base: string) {
     await student.getByLabel('选择假条文件').setInputFiles({
       name: '手机假条.pdf',
       mimeType: 'application/pdf',
-      buffer: Buffer.from('%PDF-browser-proof'),
+      buffer: previewPdf(),
     })
     await expect(student.getByRole('dialog')).not.toBeVisible()
-    await expect(record.getByRole('link', { name: '查看假条：手机假条.pdf' })).toBeVisible()
+    await expect(record.getByRole('link', { name: '下载：手机假条.pdf' })).toBeVisible()
+    await record.getByRole('button', { name: '预览：手机假条.pdf' }).click()
+    const preview = student.getByRole('dialog')
+    await expect(preview.locator('canvas[data-rendered-page="1"]')).toBeVisible()
+    await preview.getByRole('button', { name: '下一页', exact: true }).click()
+    await expect(preview.locator('canvas[data-rendered-page="2"]')).toBeVisible()
+    await preview.getByRole('button', { name: '放大', exact: true }).click()
+    await expect(preview.getByText('125%', { exact: true })).toBeVisible()
+    expect(await student.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+      false,
+    )
+    await student.screenshot({
+      path: screenshots + '/proof-pdf-preview-mobile.png',
+      fullPage: false,
+    })
+    await preview.getByRole('button', { name: '关闭弹窗', exact: true }).click()
+    await expect(preview).not.toBeVisible()
+    await record.getByRole('button', { name: '更新假条', exact: true }).click()
+    await student.getByLabel('选择假条文件').setInputFiles({
+      name: '手机假条.png',
+      mimeType: 'image/png',
+      buffer: previewPng(),
+    })
+    await expect(student.getByRole('dialog')).not.toBeVisible()
+    await record.getByRole('button', { name: '预览：手机假条.png' }).click()
+    const image = preview.getByRole('img', { name: '手机假条.png', exact: true })
+    await expect(image).toBeVisible()
+    await expect
+      .poll(() => image.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0)
+    await preview.getByRole('button', { name: '放大', exact: true }).click()
+    await expect(preview.getByText('125%', { exact: true })).toBeVisible()
+    await student.screenshot({
+      path: screenshots + '/proof-image-preview-mobile.png',
+      fullPage: false,
+    })
+    await preview.getByRole('button', { name: '关闭弹窗', exact: true }).click()
     await student.screenshot({ path: screenshots + '/leave-records-mobile.png', fullPage: true })
     expect(await student.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
       false,
@@ -101,6 +138,11 @@ export async function runLeaveBrowserChecks(base: string) {
     await expect(
       admin.getByRole('cell', { name: '手机端晚自习请假测试', exact: true }),
     ).toBeVisible()
+    await admin.getByRole('button', { name: '预览：手机假条.png', exact: true }).click()
+    await expect(
+      admin.getByRole('dialog').getByRole('img', { name: '手机假条.png', exact: true }),
+    ).toBeVisible()
+    await admin.getByRole('dialog').getByRole('button', { name: '关闭弹窗', exact: true }).click()
     const downloadPromise = admin.waitForEvent('download')
     await admin.getByRole('link', { name: '导出当日名单', exact: true }).click()
     const download = await downloadPromise
@@ -130,7 +172,7 @@ export async function runLeaveBrowserChecks(base: string) {
     )
     expect(errors).toEqual([])
     console.log(
-      '✓ Browser leave: settings, mobile identity/leave/proof/reload/cancellation, student adjustment plus admin review/direct setup, XLSX download, privacy reset and responsive pages',
+      '✓ Browser leave: settings, mobile identity/leave/proof, mobile PDF pages/zoom and image preview, admin proof preview, reload/cancellation, student adjustment plus admin review/direct setup, XLSX download, privacy reset and responsive pages',
     )
   } finally {
     await browser.close()

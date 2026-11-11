@@ -419,6 +419,12 @@ curl -fsS http://你的服务器公网IP/api/health
 
 假条文件仍写入原私有 OBS 桶，路径位于原 `OBS_PREFIX` 下的 `leave-proofs/`。如果现有 IAM 权限只放行 `assignments/` 子目录，还需在服务器使用的 IAM 策略中允许该前缀的读、写、删除；若已允许整个应用前缀则无需调整。备份需同时保留 SQLite、OBS 对象和 `.env`。
 
+### PDF / 图片预览升级与验收
+
+上传新版源码（包含 `package.json`、`bun.lock`、`nuxt.config.ts` 和新增组件 / 服务端文件）后，按本节开头的命令重新构建并启动应用。预览不增加数据库表或环境变量，沿用原数据库、OBS 私有桶及现有权限。PDF worker、字体、中文字符映射和 WASM 随构建产物部署，Dockerfile 会一并复制，无需配置外部 CDN。
+
+验收时在作业详情点击 PDF 文件旁的“预览”，检查翻页、缩放和下载；在学生 `/leave` 和管理员 `/leaves` 分别预览 PDF / 图片假条。更新假条后应只展示新版本。手机浏览器也应可显示 PDF；其他格式仍使用下载入口。
+
 正常重建不会删除 `classroom_data` 卷。**不要执行 `docker compose down -v`**，该命令会删除数据库卷和证书卷。
 
 修改 `.env` 后执行以下命令，重新注入配置；若修改了域名或证书邮箱，同时让 Caddy 应用新配置：
