@@ -14,6 +14,7 @@ import {
   RefreshCw,
   CalendarDays,
   ClipboardCheck,
+  DatabaseBackup,
 } from 'lucide-vue-next'
 import { apiError } from '~/utils/format'
 const route = useRoute()
@@ -28,6 +29,7 @@ const nav = [
   { path: '/evening-settings', label: '晚自习设置', icon: CalendarDays },
   { path: '/students', label: '班级名单', icon: UsersRound },
   { path: '/archives', label: '文件归档', icon: FolderArchive },
+  { path: '/backups', label: '数据库备份', icon: DatabaseBackup },
   { path: '/settings', label: '存储设置', icon: Settings2 },
 ]
 const current = computed(
@@ -51,7 +53,7 @@ async function reload() {
   refreshing.value = true
   await Promise.all([
     refresh(),
-    refreshNuxtData(['classroom-affairs', 'evening-admin', 'daily-leaves']),
+    refreshNuxtData(['classroom-affairs', 'evening-admin', 'daily-leaves', 'database-backups']),
   ])
   refreshing.value = false
 }

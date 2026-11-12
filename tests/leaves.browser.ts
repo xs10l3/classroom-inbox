@@ -161,6 +161,98 @@ export async function runLeaveBrowserChecks(base: string) {
     await expect(
       admin.locator('.leave-student-grid').getByText('测试甲', { exact: true }),
     ).toBeVisible()
+
+    const batchDates = [addDays(shanghaiDate(), 60), addDays(shanghaiDate(), 62)]
+    await admin.getByLabel('名单日期').fill(batchDates[0]!)
+    await admin.getByRole('button', { name: '批量请假', exact: true }).click()
+    const batch = admin.getByRole('dialog')
+    await batch.getByLabel('请假类型').selectOption('course')
+    await batch.getByLabel('添加请假日期').fill(batchDates[1]!)
+    await batch.getByRole('button', { name: '添加日期', exact: true }).click()
+    await batch.getByLabel('课程名称').fill('批量网页测试课')
+    await expect(batch.getByLabel('选择 测试甲 001', { exact: true })).toBeEnabled()
+    await batch.getByRole('button', { name: '全选搜索结果', exact: true }).click()
+    await batch.getByLabel('统一请假原因').fill('网页批量多人多日期测试')
+    await batch.getByLabel('暂时没有假条，由同学以后补交').check()
+    await batch.getByRole('button', { name: '核对 4 条请假', exact: true }).click()
+    await expect(batch.getByText('2 人 × 2 天 = 4 条请假', { exact: true })).toBeVisible()
+    await admin.screenshot({
+      path: screenshots + '/batch-leave-confirm-desktop.png',
+      fullPage: false,
+    })
+    await batch.getByRole('button', { name: '确认并生成 4 条请假', exact: true }).click()
+    await expect(batch).not.toBeVisible()
+    await expect(
+      admin.getByRole('cell', { name: '网页批量多人多日期测试', exact: true }),
+    ).toHaveCount(2)
+    await student.getByRole('button', { name: '刷新我的请假', exact: true }).click()
+    const batchRecords = student.getByRole('article').filter({ hasText: '网页批量多人多日期测试' })
+    await expect(batchRecords).toHaveCount(2)
+    await expect(batchRecords.first().getByText('假条待补', { exact: true })).toBeVisible()
+    await batchRecords.first().getByRole('button', { name: '取消请假', exact: true }).click()
+    await student
+      .getByRole('dialog')
+      .getByRole('button', { name: '确认取消请假', exact: true })
+      .click()
+    await expect(batchRecords.getByText('已取消', { exact: true })).toBeVisible()
+
+    await admin.getByRole('link', { name: '数据库备份', exact: true }).click()
+    await expect(admin.getByRole('heading', { name: '数据库备份.', exact: true })).toBeVisible()
+    const beforeBackups = await admin.locator('.backup-table tbody tr').count()
+    await admin.getByRole('button', { name: '创建数据库备份', exact: true }).click()
+    await expect(admin.locator('.backup-table tbody tr')).toHaveCount(beforeBackups + 1)
+    await expect(
+      admin.getByText('备份已创建并通过完整性校验，可下载保存', { exact: true }),
+    ).toBeVisible()
+    const backupDownload = admin.waitForEvent('download')
+    await admin.getByRole('link', { name: '下载备份', exact: true }).first().click()
+    const snapshot = await backupDownload
+    expect(snapshot.suggestedFilename()).toMatch(/^classroom-.*\.sqlite$/)
+    expect(await snapshot.failure()).toBeNull()
+    await admin.screenshot({ path: screenshots + '/database-backups-desktop.png', fullPage: true })
+    await admin.setViewportSize({ width: 390, height: 844 })
+    await admin.screenshot({ path: screenshots + '/database-backups-mobile.png', fullPage: true })
+    await expect
+      .poll(() =>
+        admin.evaluate(() => ({
+          width: innerWidth,
+          scroll: document.documentElement.scrollWidth,
+          overflow: [
+            ...document.querySelectorAll<HTMLElement>(
+              '.main-content, .content-panel, .page-title-row, .backup-table, .table-scroll',
+            ),
+          ].map((el) => ({
+            class: el.className,
+            width: el.getBoundingClientRect().width,
+            right: el.getBoundingClientRect().right,
+          })),
+        })),
+      )
+      .toMatchObject({ width: 390, scroll: 390 })
+    await admin.goto(base + '/leaves')
+    await admin.getByRole('button', { name: '批量请假', exact: true }).click()
+    await expect(admin.getByRole('dialog').getByLabel('搜索同学')).toBeVisible()
+    await expect
+      .poll(() =>
+        admin.getByRole('dialog').evaluate((el) => {
+          const rect = el.getBoundingClientRect()
+          return {
+            top: rect.top >= 0,
+            bottom: rect.bottom <= innerHeight + 1,
+            width: rect.width <= innerWidth,
+          }
+        }),
+      )
+      .toEqual({ top: true, bottom: true, width: true })
+    expect(await admin.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+      false,
+    )
+    await admin.screenshot({ path: screenshots + '/batch-leave-mobile.png', fullPage: false })
+    await admin
+      .getByRole('dialog')
+      .screenshot({ path: screenshots + '/batch-leave-mobile-dialog.png' })
+    await admin.getByRole('dialog').getByRole('button', { name: '关闭弹窗', exact: true }).click()
+
     await student.getByRole('button', { name: '切换同学', exact: true }).click()
     await expect(student.getByRole('button', { name: '查看我的请假', exact: true })).toBeVisible()
     await expect(student.getByText('手机端晚自习请假测试', { exact: true })).not.toBeVisible()
@@ -173,6 +265,9 @@ export async function runLeaveBrowserChecks(base: string) {
     expect(errors).toEqual([])
     console.log(
       '✓ Browser leave: settings, mobile identity/leave/proof, mobile PDF pages/zoom and image preview, admin proof preview, reload/cancellation, student adjustment plus admin review/direct setup, XLSX download, privacy reset and responsive pages',
+    )
+    console.log(
+      '✓ Browser admin tools: multi-student multi-date batch leave, confirmation and own cancellation, database backup creation/download and responsive desktop/mobile pages',
     )
   } finally {
     await browser.close()

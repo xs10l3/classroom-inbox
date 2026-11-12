@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { Download, Settings2, RefreshCw } from 'lucide-vue-next'
+import { Download, Settings2, RefreshCw, UsersRound } from 'lucide-vue-next'
 import { shanghaiDate } from '#shared/evening'
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: '请假管理 · 课代表' })
 const day = ref(shanghaiDate())
+const batchOpen = ref(false)
+const { notify } = useNotice()
+async function batchCreated(result: { count: number; dates: string[] }) {
+  batchOpen.value = false
+  if (!result.dates.includes(day.value)) day.value = result.dates[0]!
+  await refresh()
+  notify(`已生成 ${result.count} 条请假，提交后立即生效`)
+}
 const { data, refresh, error, status } = await useFetch('/api/admin/leaves', {
   query: { date: day },
   key: 'daily-leaves',
@@ -28,6 +36,9 @@ const shown = computed(
       <p>按个人调整计算每日晚自习名单，请假提交后立即生效。</p>
     </div>
     <div class="inline-actions">
+      <button class="button primary" @click="batchOpen = true">
+        <UsersRound :size="16" />批量请假
+      </button>
       <NuxtLink to="/evening-settings" class="button secondary"
         ><Settings2 :size="16" />晚自习设置</NuxtLink
       ><NuxtLink to="/leave" target="_blank" class="button secondary">学生请假页</NuxtLink>
@@ -155,4 +166,10 @@ const shown = computed(
     </div>
     <p v-if="!shown.length" class="leave-help">当日没有符合条件的请假记录。</p>
   </section>
+  <BatchLeaveModal
+    v-if="batchOpen"
+    :initial-date="day"
+    @close="batchOpen = false"
+    @created="batchCreated"
+  />
 </template>

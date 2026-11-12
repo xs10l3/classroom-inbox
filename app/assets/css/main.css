@@ -5304,6 +5304,217 @@ tbody tr:hover {
   }
 }
 
+/* Administrator batch leave entry and database snapshots. */
+.batch-date-field {
+  border: 1px solid #e4e8dd;
+  border-radius: 9px;
+  padding: 12px;
+  min-width: 0;
+}
+.batch-date-field legend {
+  font-size: 12px;
+  color: #526148;
+  padding: 0 5px;
+}
+.batch-date-add {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+.batch-date-add > label {
+  flex: 1;
+  min-width: 0;
+}
+.batch-date-add > button {
+  flex: none;
+  margin-bottom: 2px;
+}
+.batch-date-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+.batch-date-chips > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #dfe7d5;
+  border-radius: 6px;
+  background: #f4f7ef;
+  padding: 2px 5px 2px 9px;
+  font-size: 12px;
+  color: #506545;
+}
+.batch-date-chips .icon-button {
+  width: 27px;
+  height: 27px;
+}
+.batch-selection-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+  font-size: 11px;
+}
+.batch-selection-toolbar > span {
+  margin-right: auto;
+  color: #6b7763;
+}
+.batch-student-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #e4e8dd;
+  border-radius: 9px;
+}
+.batch-student-list .leave-check {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #edf0e8;
+  font-weight: 400;
+}
+.batch-student-list .leave-check:last-child {
+  border-bottom: 0;
+}
+.batch-student-list .leave-check:has(input:checked) {
+  background: #f1f6e9;
+}
+.batch-student-list small {
+  color: #7b8573;
+  margin-left: 6px;
+}
+.batch-student-list em {
+  display: block;
+  font-style: normal;
+  font-size: 11px;
+  color: #93714a;
+}
+.batch-student-list .unavailable {
+  background: #f8f9f5;
+  cursor: default;
+  color: #8c9484;
+}
+.batch-student-list > p {
+  padding: 0 12px;
+}
+.batch-review-summary {
+  background: #f6f8f1;
+  border: 1px solid #e1e8d7;
+  border-radius: 10px;
+  padding: 18px;
+  line-height: 1.9;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.batch-review-summary > strong {
+  font-size: 18px;
+  color: #3e5e32;
+}
+.batch-review-summary p {
+  margin-top: 9px;
+  white-space: pre-wrap;
+}
+.batch-leave-form .form-error ul {
+  padding-left: 20px;
+  margin-top: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.backup-scope > p {
+  font-size: 13px;
+  line-height: 1.9;
+  margin-bottom: 12px;
+  color: #67725e;
+}
+.backup-list-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 15px;
+}
+.backup-list-heading h2 {
+  margin-bottom: 4px;
+}
+.backup-list-heading .leave-help {
+  margin-top: 0;
+}
+.backup-file-name {
+  display: block;
+  max-width: 640px;
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.backup-table td:first-child {
+  min-width: 240px;
+}
+.backup-empty {
+  padding: 35px 15px;
+  text-align: center;
+  color: #89987d;
+}
+.backup-empty svg {
+  margin: 0 auto 15px;
+}
+.backup-empty h3 {
+  font-size: 16px;
+  font-weight: 500;
+  color: #536647;
+}
+.backup-empty p {
+  font-size: 13px;
+  margin-top: 10px;
+}
+@media (max-width: 600px) {
+  .batch-leave-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .batch-selection-toolbar {
+    gap: 8px;
+  }
+  .batch-review-summary > strong {
+    font-size: 16px;
+  }
+  .backup-table {
+    min-width: 0;
+    display: block;
+  }
+  .backup-table thead {
+    display: none;
+  }
+  .backup-table tbody {
+    display: block;
+  }
+  .backup-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    border-top: 1px solid #edf0e7;
+    padding: 15px 0;
+    gap: 12px;
+  }
+  .backup-table td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  .backup-table td:first-child {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+  .backup-table td:nth-child(2) {
+    align-self: center;
+  }
+  .backup-table td:last-child {
+    justify-self: end;
+  }
+  .backup-file-name {
+    line-height: 1.7;
+  }
+}
+
 /* Private homework and leave-proof previews. */
 .file-actions {
   display: flex;
