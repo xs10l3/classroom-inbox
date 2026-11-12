@@ -110,7 +110,12 @@ export async function runBrowserChecks(base: string) {
     await page.screenshot({ path: `${screenshots}/homework-preview-desktop.png`, fullPage: true })
     const previewDownload = page.waitForEvent('download')
     await preview.getByRole('link', { name: '下载原文件', exact: true }).click()
+    await page
+      .getByRole('region', { name: '下载准备' })
+      .getByRole('link', { name: '下载已准备文件' })
+      .click()
     expect(await (await previewDownload).failure()).toBeNull()
+    await page.getByRole('button', { name: '关闭下载提示' }).click()
     await page.keyboard.press('Escape')
     await expect(preview).not.toBeVisible()
     await page.route(

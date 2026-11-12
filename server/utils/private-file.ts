@@ -1,6 +1,7 @@
 import { Readable } from 'node:stream'
 import { createError, getQuery, sendStream, setHeaders, type H3Event } from 'h3'
 import { downloadObject } from './obs'
+import { directDownload } from './downloads'
 import { filePreviewKind } from '../../shared/file-preview'
 
 // Only inert raster formats and PDF may be served inline. Never render SVG or HTML.
@@ -31,6 +32,7 @@ export function previewMime(name: string, header: Buffer): string | null {
 // Call only after the route has checked the current file and its owner's permissions.
 export async function sendPrivateFile(event: H3Event, file: { objectKey: string; name: string }) {
   const preview = getQuery(event).preview === '1'
+  if (!preview) return directDownload(event, event.path)
   if (preview && !filePreviewKind(file.name))
     throw createError({ statusCode: 415, message: '此文件格式暂不支持预览，请下载查看' })
   const source = await downloadObject(file.objectKey)

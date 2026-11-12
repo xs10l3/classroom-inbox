@@ -219,7 +219,7 @@ export async function runAdminToolsChecks(
   assert.equal((await a(`${backups}/${name}`)).status, 401)
   const downloaded = await api(`${backups}/${name}`)
   assert.equal(downloaded.status, 200)
-  assert.equal(downloaded.headers.get('cache-control'), 'no-store')
+  assert.equal(downloaded.headers.get('cache-control'), 'no-store, no-transform')
   assert(downloaded.headers.get('content-disposition')!.startsWith('attachment;'))
   const bytes = new Uint8Array(await downloaded.arrayBuffer())
   assert.equal(Buffer.from(bytes.subarray(0, 16)).toString(), 'SQLite format 3\0')

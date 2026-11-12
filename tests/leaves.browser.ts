@@ -61,6 +61,25 @@ export async function runLeaveBrowserChecks(base: string) {
     })
     await expect(student.getByRole('dialog')).not.toBeVisible()
     await expect(record.getByRole('link', { name: '下载：手机假条.pdf' })).toBeVisible()
+    const mobileDownload = student.waitForEvent('download')
+    await record.getByRole('link', { name: '下载：手机假条.pdf' }).click()
+    const mobilePanel = student.getByRole('region', { name: '下载准备' })
+    await expect(mobilePanel.getByRole('link', { name: '下载已准备文件' })).toBeVisible()
+    await expect(
+      mobilePanel.getByRole('list', { name: '打包文件清单' }).getByRole('listitem'),
+    ).toHaveCount(1)
+    expect(
+      await mobilePanel.evaluate((el) => {
+        const rect = el.getBoundingClientRect()
+        return (
+          rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight
+        )
+      }),
+    ).toBe(true)
+    await student.screenshot({ path: screenshots + '/download-ready-mobile.png', fullPage: false })
+    await mobilePanel.getByRole('link', { name: '下载已准备文件' }).click()
+    expect(await (await mobileDownload).failure()).toBeNull()
+    await student.getByRole('button', { name: '关闭下载提示' }).click()
     await record.getByRole('button', { name: '预览：手机假条.pdf' }).click()
     const preview = student.getByRole('dialog')
     await expect(preview.locator('canvas[data-rendered-page="1"]')).toBeVisible()
@@ -144,10 +163,26 @@ export async function runLeaveBrowserChecks(base: string) {
     ).toBeVisible()
     await admin.getByRole('dialog').getByRole('button', { name: '关闭弹窗', exact: true }).click()
     const downloadPromise = admin.waitForEvent('download')
-    await admin.getByRole('link', { name: '导出当日名单', exact: true }).click()
+    await admin.getByRole('link', { name: '导出名单与假条', exact: true }).click()
+    await expect(
+      admin.getByRole('region', { name: '下载准备' }).getByText('文件已准备完成', { exact: true }),
+    ).toBeVisible()
+    const downloadPanel = admin.getByRole('region', { name: '下载准备' })
+    await expect(downloadPanel.getByRole('progressbar', { name: '文件准备进度' })).toHaveAttribute(
+      'aria-valuenow',
+      '100',
+    )
+    await expect(
+      downloadPanel.getByRole('list', { name: '打包文件清单' }).getByRole('listitem'),
+    ).toHaveCount(3)
+    await expect(downloadPanel.getByText(`晚自习名单-${day}.xlsx`, { exact: true })).toBeVisible()
+    await expect(downloadPanel.getByText(/假条\//)).toHaveCount(2)
+    await admin.screenshot({ path: screenshots + '/leave-export-ready.png', fullPage: false })
+    await downloadPanel.getByRole('link', { name: '下载已准备文件' }).click()
     const download = await downloadPromise
-    expect(download.suggestedFilename()).toBe(`晚自习名单-${day}.xlsx`)
+    expect(download.suggestedFilename()).toBe(`请假名单与假条-${day}.zip`)
     expect(await download.failure()).toBeNull()
+    await admin.getByRole('button', { name: '关闭下载提示' }).click()
     await admin.screenshot({ path: screenshots + '/leaves-desktop.png', fullPage: true })
 
     await student.getByRole('button', { name: '我的请假', exact: true }).click()
@@ -206,9 +241,14 @@ export async function runLeaveBrowserChecks(base: string) {
     ).toBeVisible()
     const backupDownload = admin.waitForEvent('download')
     await admin.getByRole('link', { name: '下载备份', exact: true }).first().click()
+    await admin
+      .getByRole('region', { name: '下载准备' })
+      .getByRole('link', { name: '下载已准备文件' })
+      .click()
     const snapshot = await backupDownload
     expect(snapshot.suggestedFilename()).toMatch(/^classroom-.*\.sqlite$/)
     expect(await snapshot.failure()).toBeNull()
+    await admin.getByRole('button', { name: '关闭下载提示' }).click()
     await admin.screenshot({ path: screenshots + '/database-backups-desktop.png', fullPage: true })
     await admin.setViewportSize({ width: 390, height: 844 })
     await admin.screenshot({ path: screenshots + '/database-backups-mobile.png', fullPage: true })

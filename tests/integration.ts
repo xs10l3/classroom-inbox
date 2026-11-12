@@ -24,6 +24,7 @@ legacyDb.exec(`CREATE TABLE tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, sub
 legacyDb.close()
 const objects = new Map<string, Uint8Array>()
 let failNextPut = false
+let pausedDownload: { path: string; resume: Promise<void> } | undefined
 const objectServer = Bun.serve({
   hostname: '127.0.0.1',
   port: 0,
@@ -43,6 +44,21 @@ const objectServer = Bun.serve({
     }
     if (request.method === 'GET') {
       const content = objects.get(path)
+      if (content && pausedDownload?.path === path) {
+        const gate = pausedDownload
+        return new Response(
+          new ReadableStream({
+            async start(controller) {
+              const middle = Math.max(1, Math.floor(content.length / 2))
+              controller.enqueue(content.slice(0, middle))
+              await gate.resume
+              controller.enqueue(content.slice(middle))
+              controller.close()
+            },
+          }),
+          { headers: { 'Content-Length': String(content.length) } },
+        )
+      }
       return content
         ? new Response(content, {
             headers: {
@@ -85,6 +101,7 @@ const app = Bun.spawn([process.execPath, resolve('.output/server/index.mjs')], {
     OBS_PREFIX: 'integration',
     UPLOAD_MAX_MB: '2',
     TRUST_PROXY: 'false',
+    DOWNLOAD_TTL_MINUTES: '60',
   },
   stdout: 'pipe',
   stderr: 'pipe',
@@ -545,6 +562,21 @@ try {
     () => objects.size,
     pass,
   )
+
+  const { runDownloadChecks } = await import('./downloads.integration')
+  await runDownloadChecks(api, join(temp, 'data'), objects, pass, (path) => {
+    let resume!: () => void
+    pausedDownload = {
+      path,
+      resume: new Promise<void>((resolve) => {
+        resume = resolve
+      }),
+    }
+    return () => {
+      pausedDownload = undefined
+      resume()
+    }
+  })
 
   const backupProcess = Bun.spawn(
     [process.execPath, resolve('scripts/backup.ts'), join(temp, 'backups')],

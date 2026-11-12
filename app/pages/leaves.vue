@@ -54,12 +54,15 @@ const shown = computed(
         @click="refresh()"
       >
         <RefreshCw :size="18" /></button
-      ><a :href="`/api/admin/evening/export?date=${day}`" class="button primary"
-        ><Download :size="16" />导出当日名单</a
+      ><a :href="`/api/admin/evening/export?date=${day}&format=xlsx`" class="button secondary"
+        >仅导出 Excel</a
+      ><a :href="`/api/admin/evening/export?date=${day}&format=zip`" class="button primary"
+        ><Download :size="16" />导出名单与假条</a
       >
     </div>
     <p class="leave-help">
-      导出包含正常晚自习、请假名单（区分晚自习与普通课程）、安排说明。待补假条的请假有效；取消的请假恢复正常安排。
+      压缩包包含当日 Excel
+      名单及有效晚自习、普通课程请假的最新假条，按日期、学号、姓名、类型、课程和时段重命名。待补假条在表中标注；已取消请假及历史假条不打包。
     </p>
     <p v-if="error" class="error-banner" role="alert">名单加载失败，请选择有效日期后重试。</p>
     <div v-if="data" class="leave-stats">
